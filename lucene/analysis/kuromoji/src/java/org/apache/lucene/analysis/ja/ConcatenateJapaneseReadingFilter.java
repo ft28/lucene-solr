@@ -21,7 +21,8 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.LinkedList;
-
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.lucene.analysis.TokenFilter;
 import org.apache.lucene.analysis.TokenStream;
@@ -63,6 +64,7 @@ public class ConcatenateJapaneseReadingFilter extends TokenFilter {
   private boolean flagSubRomanTerms = false;
   private boolean inputEnded = false;
   private int outputOffset = 0;
+  Pattern pattern = Pattern.compile("^[a-zA-Z0-9 ]+$");
 
   /**
    * Create a new ConcatenateJapaneseReadingFilter with default settings
@@ -160,26 +162,27 @@ public class ConcatenateJapaneseReadingFilter extends TokenFilter {
       romanTerm = "";
       subRomanTerm = "";
 
-      if (mode > 0) {
-          buffer1.setLength(0);      
-          buffer2.setLength(0);
+      buffer1.setLength(0);
+      buffer2.setLength(0);
 
-          String reading = readingAtt.getReading();
-          if ((reading == null) || (length > reading.length())) {
-              reading = ToStringUtil2.toKatakana(term);
+      String reading = readingAtt.getReading();
+      if (pattern.matcher(term).find()) {
+          // termがアルファベットからだけなる時は読みがあっても使わない
+          reading = term;
+      } else if ((reading == null) || (length > reading.length())) {
+          reading = ToStringUtil2.toKatakana(term);
+      }
+
+      ToStringUtil2.getRomanization(buffer1, reading, false);
+      romanTerm = buffer1.toString();
+
+      if (mode > 1) {
+          ToStringUtil2.getRomanization(buffer2, reading, true);
+          subRomanTerm = buffer2.toString();
+
+          if (!romanTerm.equals(subRomanTerm)) {
+             flagSubRomanTerms = true;
           }
-
-          ToStringUtil2.getRomanization(buffer1, reading, false);
-          romanTerm = buffer1.toString();
-
-          if (mode > 1) {
-              ToStringUtil2.getRomanization(buffer2, reading, true);
-              subRomanTerm = buffer2.toString();
-
-              if (!romanTerm.equals(subRomanTerm)) {
-                 flagSubRomanTerms = true;
-              }
-          }  
       }
 
       if (currentStartOffset > lastEndOffset) {
